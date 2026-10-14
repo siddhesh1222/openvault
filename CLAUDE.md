@@ -21,7 +21,9 @@ OpenVault is a self-hostable, GPL-3.0 file sharing and backup web app. It was bu
   - `src/components/files/`: grid/list views, preview, share dialog, version drawer, move/rename dialogs
   - `src/components/ui/`: generated shadcn components (lint-ignored); imports must use `@/lib/utils`
   - `src/lib/api.js`: the only axios instance; `/api` is proxied to :8000 by Vite in dev
-- `docs/`: architecture, Gantt, logbook, report outline, viva Q&A
+- `docs/`: architecture (Mermaid), Gantt, logbook, report outline, viva Q&A, screenshots
+- `docker-compose.yml`: nginx frontend (proxies /api) + backend; optional `postgres` profile
+- `.github/workflows/ci.yml`: pytest, lint/build, docker build on every push
 
 ## Commands (Windows / PowerShell)
 ```powershell
@@ -31,6 +33,8 @@ cd backend
 .venv\Scripts\uvicorn app.main:app --reload  # API on http://localhost:8000 (docs at /docs)
 # frontend
 cd frontend; npm run dev                     # UI on http://localhost:5173
+cd frontend; npm run lint; npm run build     # frontend checks
+docker compose up -d --build                 # full stack on http://localhost:8080
 ```
 Use `py` (not `python`) to create venvs on this machine.
 

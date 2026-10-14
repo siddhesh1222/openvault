@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]  # frontend dev server
     enable_scheduler: bool = True  # turn off in tests
 
+    @field_validator("secret_key")
+    @classmethod
+    def check_secret_key(cls, value: str) -> str:
+        """Refuse the placeholder from .env.example and keys that are easy to guess."""
+        if value == "change-me" or len(value) < 16:
+            raise ValueError("SECRET_KEY must be a random string of at least 16 characters (see .env.example)")
+        return value
+
     @field_validator("encryption_key")
     @classmethod
     def check_encryption_key(cls, value: str) -> str:

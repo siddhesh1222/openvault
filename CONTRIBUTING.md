@@ -38,6 +38,6 @@ Fix quota check for files in trash
 3. A maintainer reviews the PR. Please respond to feedback and keep the PR focused on one change.
 
 ## Reporting bugs and requesting features
-Use the GitHub issue templates (**Bug report** or **Feature request**). For security vulnerabilities, **do not open a public issue**. Contact the maintainers listed in the README privately instead.
+Use the GitHub issue templates (**Bug report** or **Feature request**). For security vulnerabilities, **do not open a public issue**. Follow [SECURITY.md](SECURITY.md) instead.
 
 By contributing, you agree that your contributions are licensed under the GPL-3.0 license.

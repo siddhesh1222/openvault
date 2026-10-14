@@ -97,8 +97,11 @@ export default function Landing() {
             variants={fadeUp}
             className="mt-7 text-4xl leading-[1.08] font-extrabold tracking-tight text-balance sm:text-6xl lg:text-7xl"
           >
-            Your files. Your server.{" "}
-            <span className="text-brand-gradient">Your rules.</span>
+            {/* The font leaves a wide gap before "." at this size, so the periods are pulled in slightly. */}
+            Your files<Dot /> Your server<Dot />{" "}
+            <span className="text-brand-gradient">
+              Your rules<Dot />
+            </span>
           </motion.h1>
           <motion.p variants={fadeUp} className="mx-auto mt-6 max-w-2xl text-base text-pretty text-muted-foreground sm:text-lg">
             OpenVault is a private alternative to proprietary cloud storage. Share files securely, keep every version,
@@ -243,6 +246,10 @@ export default function Landing() {
       </footer>
     </div>
   );
+}
+
+function Dot() {
+  return <span className="-ml-[0.07em]">.</span>;
 }
 
 function SectionHeading({ eyebrow, title, text }) {

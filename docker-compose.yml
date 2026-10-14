@@ -1,0 +1,54 @@
+# OpenVault with Docker Compose.
+#
+#   cp .env.example .env        # then fill in SECRET_KEY and ENCRYPTION_KEY
+#   docker compose up -d --build
+#   open http://localhost:8080
+#
+# Uses SQLite by default (stored in the "openvault-data" volume).
+# To use PostgreSQL instead, set in .env:
+#   DATABASE_URL=postgresql+psycopg://openvault:openvault@db:5432/openvault
+# and start with:  docker compose --profile postgres up -d --build
+
+services:
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      # Allow the site's own origin (nginx proxies /api, so CORS rarely matters).
+      CORS_ORIGINS: '["http://localhost:8080"]'
+    volumes:
+      - openvault-data:/app/data # database + encrypted files + backups
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false # only when the "postgres" profile is enabled
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: openvault
+      POSTGRES_PASSWORD: openvault # change this for a real deployment
+      POSTGRES_DB: openvault
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  openvault-data:
+  postgres-data:
