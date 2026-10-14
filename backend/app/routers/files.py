@@ -29,12 +29,18 @@ def upload(
     user: User = Depends(get_current_user),
 ):
     """Upload a file (multipart/form-data). Uploading a name that already
-    exists in the folder stores a new version of that file."""
+    exists in the folder stores a new version of that file.
+
+    You can upload into your own folders, or into folders shared with you
+    with "edit" permission. The file then belongs to (and uses the storage
+    quota of) the folder's owner.
+    """
+    owner = user
     if folder_id is not None:
-        fs.get_folder(db, user, folder_id)
+        owner = fs.get_folder(db, user, folder_id, need="edit").owner
     stored, created = fs.upload_file(
         db,
-        owner=user,
+        owner=owner,
         actor=user,
         folder_id=folder_id,
         filename=file.filename or "untitled",
@@ -61,7 +67,7 @@ def search(
 
 @router.get("/{file_id}", response_model=FileOut)
 def get_file_info(file_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return fs.get_file(db, user, file_id)
+    return fs.get_file(db, user, file_id, need="view")
 
 
 @router.patch("/{file_id}", response_model=FileOut)
@@ -72,16 +78,19 @@ def update_file(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Rename and/or move a file (`"folder_id": null` = move to top level)."""
-    file = fs.get_file(db, user, file_id)
+    """Rename (needs edit permission) and/or move (owner only) a file.
+    `"folder_id": null` moves it to the top level."""
+    file = fs.get_file(db, user, file_id, need="edit")
     new_name = fs.clean_name(data.name) if data.name is not None else file.name
     new_folder = file.folder_id
-    if "folder_id" in data.model_fields_set:
+    if "folder_id" in data.model_fields_set and data.folder_id != file.folder_id:
+        if file.owner_id != user.id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner can move this file")
         new_folder = data.folder_id
         if new_folder is not None:
             fs.get_folder(db, user, new_folder)
 
-    fs.ensure_name_free(db, user.id, new_folder, new_name, skip_file_id=file.id)
+    fs.ensure_name_free(db, file.owner_id, new_folder, new_name, skip_file_id=file.id)
 
     if new_name != file.name:
         log_activity(db, user, "file.rename", "file", file.id, new_name,
@@ -161,7 +170,7 @@ def make_file_links(file: File, user: User, version_id: int | None = None) -> Fi
 
 @router.post("/{file_id}/links", response_model=FileLinks)
 def file_links(file_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    file = fs.get_file(db, user, file_id)
+    file = fs.get_file(db, user, file_id, need="view")
     return make_file_links(file, user)
 
 

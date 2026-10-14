@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.config import get_settings
 from app.models import BackupJob, BackupRun, File, FileVersion, Folder, User, utcnow
+from app.services import access
 from app.services.quota import ensure_quota
 from app.storage import get_storage
 from app.storage.crypto import StoredBlob
@@ -133,33 +134,56 @@ def ensure_name_free(db: Session, owner_id: int, parent_id: int | None, name: st
 
 
 # ---------------------------------------------------------------------------
-# Looking things up (with ownership checks)
+# Looking things up (with permission checks)
 # ---------------------------------------------------------------------------
-# We answer 404 (not 403) for other people's items, so nobody can find out
-# which ids exist.
+# `need` is the permission level the action requires (see services/access.py).
+# Users with NO access get 404 (not 403), so nobody can find out which ids
+# exist. Users who can see the item but lack the level get 403.
+# Items in the Trash are only visible to their owner.
 
 
-def get_folder(db: Session, user: User, folder_id: int, *, in_trash: bool = False) -> Folder:
+def _check(permission: str | None, need: str, what: str) -> None:
+    if permission is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"{what} not found")
+    if not access.allows(permission, need):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, f"You need {need} permission for this {what.lower()}")
+
+
+def get_folder(
+    db: Session, user: User, folder_id: int, *, need: str = "owner", in_trash: bool = False
+) -> Folder:
     folder = db.get(Folder, folder_id)
-    if folder is None or folder.owner_id != user.id or (folder.deleted_at is not None) != in_trash:
+    if folder is None or (folder.deleted_at is not None) != in_trash:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found")
+    _check(access.folder_permission(db, user, folder), "owner" if in_trash else need, "Folder")
     return folder
 
 
-def get_file(db: Session, user: User, file_id: int, *, in_trash: bool = False) -> File:
+def get_file(
+    db: Session, user: User, file_id: int, *, need: str = "owner", in_trash: bool = False
+) -> File:
     file = db.get(File, file_id)
-    if file is None or file.owner_id != user.id or (file.deleted_at is not None) != in_trash:
+    if file is None or (file.deleted_at is not None) != in_trash:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
+    _check(access.file_permission(db, user, file), "owner" if in_trash else need, "File")
     return file
 
 
-def breadcrumbs(db: Session, folder: Folder | None) -> list[dict]:
-    """Path from the top level down to `folder`, e.g. [Documents, College, Sem 7]."""
+def breadcrumbs(db: Session, folder: Folder | None, *, start_at_id: int | None = None) -> list[dict]:
+    """Path from the top level down to `folder`, e.g. [Documents, College, Sem 7].
+
+    `start_at_id` cuts off everything above that folder. It is used for shared
+    folders, so a guest only sees the path from the folder shared with them.
+    """
     path = []
     while folder is not None:
         path.append({"id": folder.id, "name": folder.name})
         folder = db.get(Folder, folder.parent_id) if folder.parent_id else None
-    return list(reversed(path))
+    path.reverse()
+    ids = [crumb["id"] for crumb in path]
+    if start_at_id in ids:
+        path = path[ids.index(start_at_id):]
+    return path
 
 
 def descendant_folder_ids(db: Session, folder_id: int) -> list[int]:
@@ -181,17 +205,21 @@ def is_inside(db: Session, folder_id: int | None, ancestor_id: int) -> bool:
     return False
 
 
-def list_folder(db: Session, user: User, folder_id: int | None) -> tuple[list[Folder], list[File]]:
-    """Non-deleted sub-folders and files of one folder, sorted by name."""
+def list_folder(db: Session, owner_id: int, folder_id: int | None) -> tuple[list[Folder], list[File]]:
+    """Non-deleted sub-folders and files of one folder, sorted by name.
+
+    `owner_id` is the owner of the folder being listed (which is not the
+    current user when browsing a folder someone shared with them).
+    """
     folders = db.scalars(
         select(Folder)
-        .where(Folder.owner_id == user.id, _in_folder(Folder.parent_id, folder_id), Folder.deleted_at.is_(None))
+        .where(Folder.owner_id == owner_id, _in_folder(Folder.parent_id, folder_id), Folder.deleted_at.is_(None))
         .order_by(func.lower(Folder.name))
     ).all()
     files = db.scalars(
         select(File)
         .options(selectinload(File.versions))  # load versions in one extra query, not one per file
-        .where(File.owner_id == user.id, _in_folder(File.folder_id, folder_id), File.deleted_at.is_(None))
+        .where(File.owner_id == owner_id, _in_folder(File.folder_id, folder_id), File.deleted_at.is_(None))
         .order_by(func.lower(File.name))
     ).all()
     return list(folders), list(files)

@@ -9,7 +9,15 @@ like `password_hash` can never leak out by accident.
 from datetime import datetime, timezone
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, PlainSerializer, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    PlainSerializer,
+    field_validator,
+    model_validator,
+)
 
 
 def _to_utc_iso(value: datetime) -> str:
@@ -112,6 +120,7 @@ class FolderOut(ORMModel):
     parent_id: int | None
     created_at: UTCDateTime
     deleted_at: UTCDateTime | None = None
+    shared: bool = False  # owner has shared it (link or user); shown as a badge
 
 
 class FileOut(ORMModel):
@@ -124,6 +133,7 @@ class FileOut(ORMModel):
     created_at: UTCDateTime
     updated_at: UTCDateTime
     deleted_at: UTCDateTime | None = None
+    shared: bool = False
 
 
 class Breadcrumb(BaseModel):
@@ -136,6 +146,7 @@ class FolderContents(BaseModel):
 
     folder: FolderOut | None  # None = top level ("My Files")
     breadcrumbs: list[Breadcrumb]  # path from the top level down to this folder
+    permission: str  # what the current user may do here: owner / edit / view
     folders: list[FolderOut]
     files: list[FileOut]
 
@@ -174,3 +185,125 @@ class FileLinks(BaseModel):
     preview_url: str
     download_url: str
     expires_at: UTCDateTime
+
+
+# ---------------------------------------------------------------------------
+# Sharing
+# ---------------------------------------------------------------------------
+
+Permission = Literal["view", "edit"]
+
+
+def to_naive_utc(value: datetime | None) -> datetime | None:
+    """The browser sends times with a timezone; the database stores naive UTC."""
+    if value is not None and value.tzinfo is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+class ShareTarget(BaseModel):
+    """What is being shared: exactly one of file_id / folder_id."""
+
+    file_id: int | None = None
+    folder_id: int | None = None
+
+    @model_validator(mode="after")
+    def exactly_one_target(self):
+        if (self.file_id is None) == (self.folder_id is None):
+            raise ValueError("Give exactly one of file_id or folder_id")
+        return self
+
+
+class ShareLinkCreate(ShareTarget):
+    password: str | None = Field(default=None, min_length=4, max_length=72)
+    expires_at: datetime | None = None  # None = never expires
+
+    _naive = field_validator("expires_at")(to_naive_utc)
+
+
+class ShareLinkUpdate(BaseModel):
+    """Change a link. Send `"password": null` to remove the password and
+    `"expires_at": null` to make it never expire; leave a field out to keep it."""
+
+    password: str | None = Field(default=None, min_length=4, max_length=72)
+    expires_at: datetime | None = None
+
+    _naive = field_validator("expires_at")(to_naive_utc)
+
+
+class ShareLinkOut(ORMModel):
+    id: int
+    token: str
+    url: str  # e.g. "/s/abc123" (the frontend adds its own origin)
+    file_id: int | None
+    folder_id: int | None
+    has_password: bool
+    expires_at: UTCDateTime | None
+    is_expired: bool
+    download_count: int
+    created_at: UTCDateTime
+
+
+class UserBrief(ORMModel):
+    id: int
+    name: str
+    email: str
+
+
+class UserShareCreate(ShareTarget):
+    email: EmailStr
+    permission: Permission = "view"
+
+
+class UserShareUpdate(BaseModel):
+    permission: Permission
+
+
+class UserShareOut(ORMModel):
+    id: int
+    file_id: int | None
+    folder_id: int | None
+    permission: str
+    created_at: UTCDateTime
+    target_user: UserBrief
+
+
+class SharedItemOut(BaseModel):
+    """One entry on the "Shared with me" page."""
+
+    share_id: int
+    permission: str
+    shared_at: UTCDateTime
+    owner: UserBrief
+    file: FileOut | None = None
+    folder: FolderOut | None = None
+
+
+class SharedWithMe(BaseModel):
+    items: list[SharedItemOut]
+
+
+# ---------------------------------------------------------------------------
+# Public share pages (no login)
+# ---------------------------------------------------------------------------
+
+
+class ShareUnlock(BaseModel):
+    password: str
+
+
+class ShareUnlockResponse(BaseModel):
+    access: str  # short-lived token to pass as ?access=... on the next requests
+
+
+class PublicShare(BaseModel):
+    """What a visitor of /s/<token> sees. While the link is locked by a
+    password, only `requires_password` and `owner_name` are filled in."""
+
+    type: Literal["file", "folder"]
+    owner_name: str
+    requires_password: bool
+    name: str | None = None
+    expires_at: UTCDateTime | None = None
+    file: FileOut | None = None  # for file links
+    contents: FolderContents | None = None  # for folder links

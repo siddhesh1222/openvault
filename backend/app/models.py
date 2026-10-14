@@ -126,6 +126,19 @@ class ShareLink(Base):
     file: Mapped[File | None] = relationship()
     folder: Mapped[Folder | None] = relationship()
 
+    @property
+    def has_password(self) -> bool:
+        return self.password_hash is not None
+
+    @property
+    def is_expired(self) -> bool:
+        return self.expires_at is not None and self.expires_at <= utcnow()
+
+    @property
+    def url(self) -> str:
+        """Path of the public page in the frontend."""
+        return f"/s/{self.token}"
+
 
 class UserShare(Base):
     """A file or folder shared with one specific registered user.
