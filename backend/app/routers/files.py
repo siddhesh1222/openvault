@@ -6,12 +6,13 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi import File as FileField
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
 from app.models import File, FileVersion, User, utcnow
-from app.schemas import FileLinks, FileOut, FileUpdate, ItemList, MessageResponse
+from app.schemas import FileLinks, FileOut, FileUpdate, ItemList, MessageResponse, VersionOut
 from app.security import create_token, decode_token, get_current_user
 from app.services import file_service as fs
 from app.services.activity import log_activity
@@ -146,6 +147,85 @@ def delete_file_forever(
     log_activity(db, user, "file.delete", "file", file_id, name, request=request)
     db.commit()
     return MessageResponse(message=f'"{name}" deleted forever')
+
+
+# ---------------------------------------------------------------------------
+# Version history
+# ---------------------------------------------------------------------------
+
+
+def _get_version(file: File, version_id: int) -> FileVersion:
+    version = next((v for v in file.versions if v.id == version_id), None)
+    if version is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
+    return version
+
+
+@router.get("/{file_id}/versions", response_model=list[VersionOut])
+def list_versions(file_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """All stored versions of a file, newest first."""
+    file = fs.get_file(db, user, file_id, need="view")
+    author_ids = {v.created_by for v in file.versions if v.created_by}
+    names = dict(db.execute(select(User.id, User.name).where(User.id.in_(author_ids))).all())
+    current = file.current_version
+    return [
+        VersionOut(
+            id=v.id,
+            version_no=v.version_no,
+            size=v.size,
+            sha256=v.sha256,
+            created_at=v.created_at,
+            created_by_name=names.get(v.created_by),
+            is_current=v.id == current.id,
+        )
+        for v in reversed(file.versions)
+    ]
+
+
+@router.post("/{file_id}/versions", response_model=FileOut, status_code=status.HTTP_201_CREATED)
+def upload_version(
+    file_id: int,
+    request: Request,
+    file: UploadFile = FileField(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Upload new contents for an existing file (the file keeps its name)."""
+    target = fs.get_file(db, user, file_id, need="edit")
+    version = fs.upload_new_version(db, target, user, file.file)
+    log_activity(db, user, "file.new_version", "file", target.id, target.name,
+                 details=f"version {version.version_no}", request=request)
+    db.commit()
+    return target
+
+
+@router.post("/{file_id}/versions/{version_id}/links", response_model=FileLinks)
+def version_links(
+    file_id: int, version_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
+    """Preview/download links for one specific (possibly old) version."""
+    file = fs.get_file(db, user, file_id, need="view")
+    return make_file_links(file, user, version_id=_get_version(file, version_id).id)
+
+
+@router.post("/{file_id}/versions/{version_id}/restore", response_model=FileOut)
+def restore_version(
+    file_id: int,
+    version_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Make an old version current again (it is copied as a new version)."""
+    file = fs.get_file(db, user, file_id, need="edit")
+    old = _get_version(file, version_id)
+    if old.id == file.current_version.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This is already the current version")
+    new = fs.restore_version(db, file, old, user)
+    log_activity(db, user, "file.version_restore", "file", file.id, file.name,
+                 details=f"version {old.version_no} restored as version {new.version_no}", request=request)
+    db.commit()
+    return file
 
 
 # ---------------------------------------------------------------------------

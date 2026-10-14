@@ -123,20 +123,32 @@ class EncryptedStorage:
         self.chunk_size = chunk_size
 
     def put(self, source: BinaryIO) -> StoredBlob:
-        """Encrypt everything readable from `source` and store it under a new random key."""
+        """Encrypt everything readable from `source` (an open file) and store it."""
+        return self.put_chunks(iter(lambda: source.read(self.chunk_size), b""))
+
+    def put_chunks(self, chunks: Iterable[bytes]) -> StoredBlob:
+        """Encrypt a stream of plaintext chunks and store it under a new random key."""
         key = uuid.uuid4().hex
         checksum = hashlib.sha256()
         size = 0
 
-        def plaintext_chunks():
+        def counted_chunks():
             nonlocal size
-            for chunk in iter(lambda: source.read(self.chunk_size), b""):
+            for chunk in chunks:
                 checksum.update(chunk)
                 size += len(chunk)
                 yield chunk
 
-        self.backend.save(key, encrypt_chunks(self.aesgcm, key, plaintext_chunks()))
+        self.backend.save(key, encrypt_chunks(self.aesgcm, key, counted_chunks()))
         return StoredBlob(key=key, size=size, sha256=checksum.hexdigest())
+
+    def copy(self, key: str) -> StoredBlob:
+        """Store a second, independent copy of `key`.
+
+        The raw bytes can't simply be copied, because every chunk is bound to
+        its storage key, so we decrypt and re-encrypt under the new key.
+        """
+        return self.put_chunks(self.get(key))
 
     def get(self, key: str) -> Iterator[bytes]:
         """Yield the decrypted contents of `key`, one chunk at a time."""

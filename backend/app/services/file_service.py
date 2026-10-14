@@ -308,14 +308,7 @@ def upload_file(
     # Browsers send just the file name, but older ones may send a full path.
     name = clean_name(filename.replace("\\", "/").split("/")[-1])
 
-    size = _stream_size(source)
-    max_bytes = get_settings().max_upload_mb * 1024 * 1024
-    if size > max_bytes:
-        raise HTTPException(
-            status.HTTP_413_CONTENT_TOO_LARGE,
-            f"File is larger than the {get_settings().max_upload_mb} MB upload limit",
-        )
-    ensure_quota(db, owner, size)
+    check_upload_size(db, owner, _stream_size(source))
 
     existing = db.scalar(
         select(File).where(
@@ -345,6 +338,32 @@ def upload_file(
     add_version(db, file, blob, actor)
     db.flush()  # assigns ids
     return file, created
+
+
+def check_upload_size(db: Session, owner: User, size: int) -> None:
+    """Reject files over the upload limit or over the owner's storage quota."""
+    max_mb = get_settings().max_upload_mb
+    if size > max_mb * 1024 * 1024:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE, f"File is larger than the {max_mb} MB upload limit"
+        )
+    ensure_quota(db, owner, size)
+
+
+def upload_new_version(db: Session, file: File, actor: User, source: BinaryIO) -> FileVersion:
+    """Store `source` as the newest version of an existing file (keeps its name)."""
+    check_upload_size(db, file.owner, _stream_size(source))
+    return add_version(db, file, get_storage().put(source), actor)
+
+
+def restore_version(db: Session, file: File, version: FileVersion, actor: User) -> FileVersion:
+    """Make an old version current again by COPYING it as a new version.
+
+    Nothing is overwritten, so the restore itself can be undone by restoring
+    the version that was current before.
+    """
+    ensure_quota(db, file.owner, version.size)
+    return add_version(db, file, get_storage().copy(version.storage_key), actor)
 
 
 # ---------------------------------------------------------------------------

@@ -307,3 +307,85 @@ class PublicShare(BaseModel):
     expires_at: UTCDateTime | None = None
     file: FileOut | None = None  # for file links
     contents: FolderContents | None = None  # for folder links
+
+# ---------------------------------------------------------------------------
+# Versions
+# ---------------------------------------------------------------------------
+
+
+class VersionOut(BaseModel):
+    id: int
+    version_no: int
+    size: int
+    sha256: str
+    created_at: UTCDateTime
+    created_by_name: str | None  # None if that user was deleted
+    is_current: bool
+
+
+# ---------------------------------------------------------------------------
+# Backups
+# ---------------------------------------------------------------------------
+
+Frequency = Literal["daily", "weekly"]
+
+
+class BackupJobCreate(BaseModel):
+    """A backup schedule. Times are in UTC; weekday 0 = Monday ... 6 = Sunday."""
+
+    name: str = Field(min_length=1, max_length=100)
+    folder_id: int | None = None  # None = back up all of My Files
+    frequency: Frequency = "daily"
+    hour: int = Field(default=2, ge=0, le=23)
+    minute: int = Field(default=0, ge=0, le=59)
+    weekday: int | None = Field(default=None, ge=0, le=6)
+    retention: int = Field(default=7, ge=1, le=30)  # how many successful backups to keep
+    enabled: bool = True
+
+    @model_validator(mode="after")
+    def weekly_needs_weekday(self):
+        if self.frequency == "weekly" and self.weekday is None:
+            raise ValueError("Weekly backups need a weekday (0 = Monday ... 6 = Sunday)")
+        return self
+
+
+class BackupJobUpdate(BaseModel):
+    """Change a schedule; only the fields that are sent are changed."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    frequency: Frequency | None = None
+    hour: int | None = Field(default=None, ge=0, le=23)
+    minute: int | None = Field(default=None, ge=0, le=59)
+    weekday: int | None = Field(default=None, ge=0, le=6)
+    retention: int | None = Field(default=None, ge=1, le=30)
+    enabled: bool | None = None
+
+
+class BackupRunOut(BaseModel):
+    id: int
+    job_id: int
+    job_name: str
+    status: str  # running / success / failed
+    trigger: str  # scheduled / manual
+    started_at: UTCDateTime
+    finished_at: UTCDateTime | None
+    file_count: int
+    size: int
+    error: str | None
+
+
+class BackupJobOut(BaseModel):
+    id: int
+    name: str
+    folder_id: int | None
+    folder_name: str  # "My Files" when the whole drive is backed up
+    frequency: str
+    hour: int
+    minute: int
+    weekday: int | None
+    retention: int
+    enabled: bool
+    created_at: UTCDateTime
+    last_run_at: UTCDateTime | None
+    next_run_at: UTCDateTime | None  # None when the schedule is paused
+    last_status: str | None
