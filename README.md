@@ -86,7 +86,7 @@ More screenshots are in [`docs/screenshots/`](docs/screenshots/).
 You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) or Docker Engine with the Compose plugin (Linux).
 
 ```bash
-git clone https://github.com/<your-username>/openvault.git
+git clone https://github.com/siddhesh1222/openvault.git
 cd openvault
 cp .env.example .env
 ```

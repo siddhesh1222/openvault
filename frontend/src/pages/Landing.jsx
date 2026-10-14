@@ -22,7 +22,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 
-const REPO_URL = "https://github.com/";
+const REPO_URL = "https://github.com/siddhesh1222/openvault";
 
 const FEATURES = [
   { icon: LockKeyhole, title: "Encrypted at rest", text: "Every file is stored with AES-256-GCM. Even with disk access, nobody can read it without your key." },
