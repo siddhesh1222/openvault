@@ -14,7 +14,13 @@ OpenVault is a self-hostable, GPL-3.0 file sharing and backup web app. It was bu
   - `app/services/`: business logic (quota, activity log, files, sharing, backups)
   - `app/storage/`: `StorageBackend` interface + local implementation + AES-GCM encryption
   - `tests/`: pytest; `conftest.py` sets env vars to a temp DB/storage *before* importing the app
-- `frontend/`: React (Vite, JavaScript/JSX), Tailwind, shadcn/ui
+- `frontend/`: React (Vite, JavaScript/JSX), Tailwind v4, shadcn/ui
+  - `src/index.css`: design tokens (light + dark) — use `bg-primary`, `text-muted-foreground`, `bg-brand-gradient`, never raw hex
+  - `src/context/`: Auth (JWT in localStorage), Theme, Upload queue
+  - `src/hooks/useItemActions.jsx`: all file/folder actions + their dialogs (reused by Files, Shared, Search pages)
+  - `src/components/files/`: grid/list views, preview, share dialog, version drawer, move/rename dialogs
+  - `src/components/ui/`: generated shadcn components (lint-ignored); imports must use `@/lib/utils`
+  - `src/lib/api.js`: the only axios instance; `/api` is proxied to :8000 by Vite in dev
 - `docs/`: architecture, Gantt, logbook, report outline, viva Q&A
 
 ## Commands (Windows / PowerShell)
