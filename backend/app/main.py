@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import models  # noqa: F401  (imported so every table is registered on Base)
 from app.config import get_settings
 from app.database import Base, engine
-from app.routers import auth, backups, files, folders, public, shares, trash, users
+from app.routers import admin, auth, backups, dashboard, files, folders, public, shares, trash, users
 from app.scheduler import start_scheduler, stop_scheduler
 
 settings = get_settings()
@@ -56,6 +56,8 @@ app.include_router(trash.router)
 app.include_router(shares.router)
 app.include_router(public.router)
 app.include_router(backups.router)
+app.include_router(dashboard.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health", tags=["meta"])

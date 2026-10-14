@@ -2,14 +2,17 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import AppLayout from "@/components/AppLayout";
-import { FullPageLoader, RedirectIfAuthed, RequireAuth } from "@/components/RouteGuards";
+import { FullPageLoader, RedirectIfAuthed, RequireAdmin, RequireAuth } from "@/components/RouteGuards";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 
 // Pages loaded on demand (code splitting): the browser only downloads the
 // code for a page when the user first visits it, so the first load is faster.
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const FilesPage = lazy(() => import("@/pages/FilesPage"));
+const ActivityPage = lazy(() => import("@/pages/ActivityPage"));
+const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const SharedPage = lazy(() => import("@/pages/SharedPage"));
 const BackupsPage = lazy(() => import("@/pages/BackupsPage"));
 const TrashPage = lazy(() => import("@/pages/TrashPage"));
@@ -34,7 +37,8 @@ export default function App() {
         {/* Logged-in app */}
         <Route element={<RequireAuth />}>
           <Route path="/app" element={<AppLayout />}>
-            <Route index element={<Navigate to="files" replace />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="files" element={<FilesPage />} />
             <Route path="files/:folderId" element={<FilesPage />} />
             <Route path="shared" element={<SharedPage />} />
@@ -42,6 +46,10 @@ export default function App() {
             <Route path="trash" element={<TrashPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="search" element={<SearchPage />} />
+            <Route path="activity" element={<ActivityPage />} />
+            <Route element={<RequireAdmin />}>
+              <Route path="admin" element={<AdminPage />} />
+            </Route>
           </Route>
         </Route>
 

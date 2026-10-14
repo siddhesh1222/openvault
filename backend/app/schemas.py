@@ -389,3 +389,88 @@ class BackupJobOut(BaseModel):
     last_run_at: UTCDateTime | None
     next_run_at: UTCDateTime | None  # None when the schedule is paused
     last_status: str | None
+
+# ---------------------------------------------------------------------------
+# Dashboard & activity
+# ---------------------------------------------------------------------------
+
+
+class KindStat(BaseModel):
+    kind: str  # image / video / audio / document / archive / code / other
+    label: str
+    bytes: int
+    count: int
+
+
+class DayStat(BaseModel):
+    date: str  # YYYY-MM-DD (UTC)
+    count: int
+    bytes: int
+
+
+class DashboardStats(BaseModel):
+    used_bytes: int
+    quota_bytes: int
+    file_count: int
+    folder_count: int
+    shared_count: int  # links + people the user shared with
+    shared_with_me_count: int
+    trash_bytes: int
+    backup_bytes: int
+    by_kind: list[KindStat]
+    uploads_per_day: list[DayStat]
+
+
+class ActivityOut(ORMModel):
+    id: int
+    action: str  # e.g. "file.upload"
+    target_type: str | None
+    target_id: int | None
+    target_name: str | None
+    details: str | None
+    ip_address: str | None
+    created_at: UTCDateTime
+    user_name: str | None = None  # filled in for the admin's system-wide log
+    user_email: str | None = None
+
+
+class ActivityPage(BaseModel):
+    items: list[ActivityOut]
+    total: int
+
+
+# ---------------------------------------------------------------------------
+# Admin
+# ---------------------------------------------------------------------------
+
+
+class AdminUserOut(BaseModel):
+    id: int
+    name: str
+    email: str
+    is_admin: bool
+    is_active: bool
+    quota_bytes: int
+    used_bytes: int
+    file_count: int
+    created_at: UTCDateTime
+    last_login_at: UTCDateTime | None
+
+
+class AdminUserUpdate(BaseModel):
+    """Fields an admin can change on any account (only the ones sent are changed)."""
+
+    quota_bytes: int | None = Field(default=None, ge=0)
+    is_active: bool | None = None
+    is_admin: bool | None = None
+
+
+class AdminStats(BaseModel):
+    user_count: int
+    active_user_count: int
+    admin_count: int
+    file_count: int
+    total_used_bytes: int
+    total_quota_bytes: int
+    backup_count: int
+    share_link_count: int

@@ -1,25 +1,45 @@
 import { NavLink } from "react-router-dom";
-import { DatabaseBackup, FolderClosed, PanelLeftClose, PanelLeftOpen, Settings, Trash2, Users } from "lucide-react";
+import {
+  DatabaseBackup,
+  FolderClosed,
+  History,
+  LayoutDashboard,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from "lucide-react";
 
 import { Logo } from "@/components/Logo";
 import { StorageBar } from "@/components/StorageBar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
+  { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/app/files", label: "My Files", icon: FolderClosed },
   { to: "/app/shared", label: "Shared with me", icon: Users },
   { to: "/app/backups", label: "Backups", icon: DatabaseBackup },
   { to: "/app/trash", label: "Trash", icon: Trash2 },
+];
+
+const ACCOUNT_ITEMS = [
+  { to: "/app/activity", label: "Activity", icon: History },
   { to: "/app/settings", label: "Settings", icon: Settings },
 ];
+const ADMIN_ITEM = { to: "/app/admin", label: "Admin", icon: ShieldCheck };
 
 /**
  * Left navigation. On desktop it can be collapsed to icons only;
  * on mobile the same content is shown inside a slide-out sheet (see AppLayout).
  */
 export function SidebarContent({ collapsed = false, onToggle, onNavigate }) {
+  const { user } = useAuth();
+  const accountItems = user?.is_admin ? [...ACCOUNT_ITEMS, ADMIN_ITEM] : ACCOUNT_ITEMS;
   return (
     <div className="flex h-full flex-col gap-4 p-3">
       <div className={cn("flex h-12 items-center", collapsed ? "justify-center" : "justify-between pl-2")}>
@@ -33,6 +53,12 @@ export function SidebarContent({ collapsed = false, onToggle, onNavigate }) {
 
       <nav className="flex flex-col gap-1" aria-label="Sections">
         {NAV_ITEMS.map((item) => (
+          <SidebarLink key={item.to} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+        ))}
+        <div className={cn("mt-4 mb-1 px-3 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase", collapsed && "sr-only")}>
+          Account
+        </div>
+        {accountItems.map((item) => (
           <SidebarLink key={item.to} item={item} collapsed={collapsed} onNavigate={onNavigate} />
         ))}
       </nav>

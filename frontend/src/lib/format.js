@@ -47,3 +47,8 @@ export function initials(name = "") {
     .map((part) => part[0].toUpperCase())
     .join("");
 }
+
+/** "2026-10-14" -> "14 Oct" (a calendar day from the API, which is in UTC). */
+export function shortDay(isoDate) {
+  return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" });
+}

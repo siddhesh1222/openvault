@@ -29,3 +29,10 @@ export function RedirectIfAuthed() {
   if (user) return <Navigate to="/app/files" replace />;
   return <Outlet />;
 }
+
+/** Admin-only pages: everyone else is sent to their dashboard. */
+export function RequireAdmin() {
+  const { user } = useAuth();
+  if (!user?.is_admin) return <Navigate to="/app/dashboard" replace />;
+  return <Outlet />;
+}

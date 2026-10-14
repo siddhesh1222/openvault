@@ -71,7 +71,8 @@ def find_active_link(db: Session, token: str) -> ShareLink:
     """Load a link by its token; 404 if unknown or its item is gone, 410 if expired."""
     link = db.scalar(select(ShareLink).where(ShareLink.token == token))
     item = (link.file or link.folder) if link else None
-    if link is None or item is None or item.deleted_at is not None:
+    # Links stop working when the item is in the Trash or its owner was disabled by an admin.
+    if link is None or item is None or item.deleted_at is not None or not item.owner.is_active:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "This link does not exist or was removed")
     if link.is_expired:
         raise HTTPException(status.HTTP_410_GONE, "This link has expired")
