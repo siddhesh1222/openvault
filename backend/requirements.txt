@@ -1,0 +1,12 @@
+# Runtime dependencies for the OpenVault backend.
+fastapi>=0.115            # web framework (REST API)
+uvicorn[standard]>=0.30   # ASGI server that runs FastAPI
+sqlalchemy>=2.0           # ORM / database toolkit
+pydantic-settings>=2.4    # reads configuration from .env / environment variables
+email-validator>=2.2      # validates email addresses (used by pydantic's EmailStr)
+python-multipart>=0.0.9   # needed by FastAPI to receive file uploads (multipart/form-data)
+bcrypt>=4.2               # password hashing
+PyJWT>=2.9                # JSON Web Tokens for login sessions
+cryptography>=43          # AES-256-GCM encryption of stored files
+APScheduler>=3.10,<4      # runs scheduled (daily/weekly) backups
+psycopg[binary]>=3.2      # PostgreSQL driver (only used when DATABASE_URL points to Postgres)

@@ -1,0 +1,4 @@
+# Extra dependencies for development and testing.
+-r requirements.txt
+pytest>=8.3   # test runner
+httpx2        # HTTP client used by FastAPI's TestClient (newer Starlette prefers it over httpx)
