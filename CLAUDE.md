@@ -3,7 +3,7 @@
 Guidance for AI coding assistants (and humans) working on OpenVault.
 
 ## What this is
-OpenVault is a self-hostable, GPL-3.0 file sharing and backup web app. It was built as a University of Mumbai ITL704 mini project by a group of 4 students, **who must be able to explain every line in a viva**. Prefer simple, readable, well-commented code over clever abstractions.
+OpenVault is a self-hostable, GPL-3.0 file sharing and backup web app. It was built as a University of Mumbai ITL704 mini project by a group of 3 students, **who must be able to explain every line in a viva**. Prefer simple, readable, well-commented code over clever abstractions.
 
 ## Layout
 - `backend/`: FastAPI + SQLAlchemy 2.0 + APScheduler (Python 3.12)

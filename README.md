@@ -236,7 +236,7 @@ The backend documents itself. Run it and open **http://localhost:8000/docs** (Sw
 | Document | Contents |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | System architecture, ER, use-case and data-flow diagrams, backup/upload/auth sequences, security design |
-| [`docs/gantt.md`](docs/gantt.md) | 12-week Gantt chart and work split for 4 members |
+| [`docs/gantt.md`](docs/gantt.md) | 12-week Gantt chart and work split for the 3 members |
 | [`docs/logbook.md`](docs/logbook.md) | Weekly logbook template with sample entries |
 | [`docs/report-outline.md`](docs/report-outline.md) | University of Mumbai report structure, chapter by chapter |
 | [`docs/viva.md`](docs/viva.md) | 25 likely viva questions answered from the code |
@@ -270,10 +270,9 @@ ITL704 Recent Open Source Project Lab, B.E. Information Technology, Semester VII
 
 | Member | Roll no. | Role |
 |---|---|---|
-| _Name_ | | Backend core & security |
-| _Name_ | | Storage, encryption & backups |
-| _Name_ | | Frontend |
-| _Name_ | | Sharing, QA, DevOps & documentation |
+| **Siddhesh Dalvi** | 776 | Backend core, authentication, permissions & sharing, admin API |
+| **Samarth Jedhe** | 775 | Storage & encryption, files, versioning, backups, tests, Docker & CI |
+| **Vaibhav Narayankar** | 777 | Frontend, dashboard, end-to-end UI tests, documentation |
 
 **Guide:** _Prof. Name_
 
