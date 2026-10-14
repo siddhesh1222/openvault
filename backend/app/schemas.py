@@ -99,3 +99,78 @@ class PasswordChange(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+# ---------------------------------------------------------------------------
+# Files & folders
+# ---------------------------------------------------------------------------
+
+
+class FolderOut(ORMModel):
+    id: int
+    name: str
+    parent_id: int | None
+    created_at: UTCDateTime
+    deleted_at: UTCDateTime | None = None
+
+
+class FileOut(ORMModel):
+    id: int
+    name: str
+    folder_id: int | None
+    mime_type: str
+    size: int
+    version_count: int
+    created_at: UTCDateTime
+    updated_at: UTCDateTime
+    deleted_at: UTCDateTime | None = None
+
+
+class Breadcrumb(BaseModel):
+    id: int
+    name: str
+
+
+class FolderContents(BaseModel):
+    """Everything the "My Files" page needs for one folder, in one request."""
+
+    folder: FolderOut | None  # None = top level ("My Files")
+    breadcrumbs: list[Breadcrumb]  # path from the top level down to this folder
+    folders: list[FolderOut]
+    files: list[FileOut]
+
+
+class ItemList(BaseModel):
+    """A mixed list of folders and files (used by Trash and Search)."""
+
+    folders: list[FolderOut]
+    files: list[FileOut]
+
+
+class FolderCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    parent_id: int | None = None
+
+
+class FolderUpdate(BaseModel):
+    """Rename and/or move a folder. Send only the fields you want to change;
+    `"parent_id": null` moves the folder to the top level."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    parent_id: int | None = None
+
+
+class FileUpdate(BaseModel):
+    """Rename and/or move a file. `"folder_id": null` moves it to the top level."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    folder_id: int | None = None
+
+
+class FileLinks(BaseModel):
+    """Short-lived URLs that work without the Authorization header
+    (for <img>/<video> previews and normal browser downloads)."""
+
+    preview_url: str
+    download_url: str
+    expires_at: UTCDateTime

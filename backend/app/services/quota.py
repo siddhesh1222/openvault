@@ -30,6 +30,6 @@ def ensure_quota(db: Session, user: User, extra_bytes: int) -> None:
     """Raise 413 if adding `extra_bytes` would push the user over their quota."""
     if get_used_bytes(db, user.id) + extra_bytes > user.quota_bytes:
         raise HTTPException(
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status.HTTP_413_CONTENT_TOO_LARGE,
             "Storage quota exceeded. Delete some files or ask an admin for more space.",
         )

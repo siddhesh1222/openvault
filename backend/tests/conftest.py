@@ -8,6 +8,7 @@ never touch real data.
 
 import base64
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -30,7 +31,8 @@ PASSWORD = "correct-horse-battery"
 
 @pytest.fixture
 def client():
-    """A test client with a fresh, empty database for every test."""
+    """A test client with a fresh, empty database and storage folder for every test."""
+    shutil.rmtree(os.environ["STORAGE_DIR"], ignore_errors=True)
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     with TestClient(app) as test_client:  # `with` runs the app's startup code
@@ -52,3 +54,35 @@ def register(client):
         return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
     return _register
+
+
+@pytest.fixture
+def upload(client):
+    """Helper: upload bytes as a file and return the JSON response.
+
+    Usage:  info = upload(headers, "notes.txt", b"hello", folder_id=3)
+    """
+
+    def _upload(headers: dict, name: str, data: bytes, folder_id: int | None = None, expect: int = 201):
+        form = {"folder_id": str(folder_id)} if folder_id is not None else {}
+        response = client.post(
+            "/api/files/upload", headers=headers, files={"file": (name, data)}, data=form
+        )
+        assert response.status_code == expect, response.text
+        return response.json()
+
+    return _upload
+
+
+@pytest.fixture
+def download(client):
+    """Helper: download a file's current content through a short-lived link."""
+
+    def _download(headers: dict, file_id: int) -> bytes:
+        links = client.post(f"/api/files/{file_id}/links", headers=headers)
+        assert links.status_code == 200, links.text
+        response = client.get(links.json()["download_url"])
+        assert response.status_code == 200, response.text
+        return response.content
+
+    return _download

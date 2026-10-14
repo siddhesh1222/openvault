@@ -87,6 +87,10 @@ class File(Base):
     def current_version(self) -> "FileVersion | None":
         return self.versions[-1] if self.versions else None
 
+    @property
+    def version_count(self) -> int:
+        return len(self.versions)
+
 
 class FileVersion(Base):
     __tablename__ = "file_versions"
